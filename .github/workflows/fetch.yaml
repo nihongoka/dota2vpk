@@ -1,0 +1,60 @@
+name: Fetch game data
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  precheck:
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.new_version.outputs.version }}
+      current_version: ${{ steps.current_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 'main'
+      - id: new_version
+        run: echo "version=`curl \"https://api.steampowered.com/IGCVersion_570/GetClientVersion/v1/?key=${{ secrets.STEAM_API_KEY }}\" | jq .result.active_version`" >> $GITHUB_OUTPUT
+      - id: current_version
+        run: echo "version=`cat version`" >> $GITHUB_OUTPUT
+  build:
+    name: Fetch and build
+    runs-on: windows-latest
+    needs: precheck
+    if: ${{ needs.precheck.outputs.new_version != needs.precheck.outputs.current_version || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: CyberAndrii/setup-steamcmd@v1
+      - name: Fetch Dota2 client data
+        run: steamcmd +force_install_dir ${{ runner.temp }} +login ${{ secrets.STEAM_USERNAME }} "${{ secrets.STEAM_PASSWORD }}" +app_update 570 validate +quit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install vpk
+        run: pip install vpk
+      - uses: actions/checkout@v4
+        with:
+          ref: 'main'
+      - run: mkdir ${{ github.workspace }}\game\dota -Force
+      - run: mkdir ${{ github.workspace }}\game\dota_addons -Force
+      - run: vpk -x ./game/dota/ -f resource/localization/*_japanese.txt "${{ runner.temp }}\game\dota\pak01_dir.vpk"
+      - run: vpk -x ./game/dota/ -f resource/localization/*_english.txt "${{ runner.temp }}\game\dota\pak01_dir.vpk"
+      - run: vpk -x ./game/dota/ -f scripts/*.txt "${{ runner.temp }}\game\dota\pak01_dir.vpk"
+      - run: |
+          $sourceDir = "${{ runner.temp }}\game\dota_addons"
+          $destDir = "${{ github.workspace }}\game\dota_addons"
+          Get-ChildItem -Path $sourceDir -Filter "*_{japanese,english}.txt" -Recurse -File | ForEach-Object { 
+            $dest = Join-Path $destDir ([System.IO.Path]::GetRelativePath($sourceDir, $_.FullName))
+            New-Item -ItemType Directory -Path (Split-Path $dest) -Force | Out-Null
+            Copy-Item $_.FullName -Destination $dest -Force
+          }
+      - run: Select-String -Path "${{ github.workspace }}\game\dota\steam.inf" -Pattern "^ClientVersion=(\d+)" | ForEach-Object { $_.Matches.Groups[1].Value } | Out-File -Encoding utf8 "version"
+      - name: Commit and Push
+        run: |
+          git config user.name "Nihongoka Bot"
+          git config user.email "71134725+nihongoka-bot@users.noreply.github.com"
+          git add ./game ./version
+          if ( -not ( git diff-index --quiet HEAD ) ) { git commit -m "Client version: $( Get-Content version )" }
+          git push origin master
