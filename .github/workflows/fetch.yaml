@@ -50,7 +50,7 @@ jobs:
             New-Item -ItemType Directory -Path (Split-Path $dest) -Force | Out-Null
             Copy-Item $_.FullName -Destination $dest -Force
           }
-      - run: Select-String -Path "${{ github.workspace }}\game\dota\steam.inf" -Pattern "^ClientVersion=(\d+)" | ForEach-Object { $_.Matches.Groups[1].Value } | Out-File -Encoding utf8 "version"
+      - run: Select-String -Path "{{ runner.temp }}\game\dota\steam.inf" -Pattern "^ClientVersion=(\d+)" | ForEach-Object { $_.Matches.Groups[1].Value } | Out-File -Encoding utf8 "version"
       - name: Commit and Push
         run: |
           git config user.name "Nihongoka Bot"
