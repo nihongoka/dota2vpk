@@ -45,7 +45,9 @@ jobs:
       - run: |
           $sourceDir = "${{ runner.temp }}\game\dota_addons"
           $destDir = "${{ github.workspace }}\game\dota_addons"
-          Get-ChildItem -Path $sourceDir -Filter "*_{japanese,english}.txt" -Recurse -File | ForEach-Object { 
+          Get-ChildItem -Path $sourceDir -Recurse -File | Where-Object {
+            $_.Name -match '_japanese\.txt$' -or $_.Name -match '_english\.txt$'
+          } | ForEach-Object {
             $dest = Join-Path $destDir ([System.IO.Path]::GetRelativePath($sourceDir, $_.FullName))
             New-Item -ItemType Directory -Path (Split-Path $dest) -Force | Out-Null
             Copy-Item $_.FullName -Destination $dest -Force
