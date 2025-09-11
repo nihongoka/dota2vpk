@@ -13,35 +13,65 @@ jobs:
       new_version: ${{ steps.new_version.outputs.version }}
       current_version: ${{ steps.current_version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: 'main'
+      - uses: actions/checkout@v5
+
       - id: new_version
         run: echo "version=`curl \"https://api.steampowered.com/IGCVersion_570/GetClientVersion/v1/?key=${{ secrets.STEAM_API_KEY }}\" | jq .result.active_version`" >> $GITHUB_OUTPUT
+
       - id: current_version
         run: echo "version=`cat version`" >> $GITHUB_OUTPUT
+
   build:
     name: Fetch and build
-    runs-on: windows-latest
+    runs-on: windows-latest # Windowsでないと容量不足になる
+    outputs:
+      version: ${{ needs.precheck.outputs.new_verions }}
     needs: precheck
     if: ${{ needs.precheck.outputs.new_version != needs.precheck.outputs.current_version || github.event_name == 'workflow_dispatch' }}
     steps:
-      - uses: CyberAndrii/setup-steamcmd@v1
+      - id: app-token
+        name: Generate token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - id: get-user-id
+        name: Get GitHub App User ID
+        shell: pwsh
+        run: |
+          $id = gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id
+          "user-id=$id" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Checkout dota2vpk repo
+        uses: actions/checkout@v5
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Setup steamcmd
+        uses: RageAgainstThePixel/setup-steamcmd@v1
+
       - name: Fetch Dota2 client data
         run: steamcmd +force_install_dir ${{ runner.temp }} +login ${{ secrets.STEAM_USERNAME }} "${{ secrets.STEAM_PASSWORD }}" +app_update 570 validate +quit
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
+
+      - name: Setup python
+        uses: actions/setup-python@v5
+
       - name: Install vpk
         run: pip install vpk
-      - uses: actions/checkout@v4
-        with:
-          ref: 'main'
+
       - run: mkdir ${{ github.workspace }}\game\dota -Force
+
       - run: mkdir ${{ github.workspace }}\game\dota_addons -Force
+
       - run: vpk -x ./game/dota/ -f resource/localization/*_japanese.txt "${{ runner.temp }}\game\dota\pak01_dir.vpk"
+
       - run: vpk -x ./game/dota/ -f resource/localization/*_english.txt "${{ runner.temp }}\game\dota\pak01_dir.vpk"
+
       - run: vpk -x ./game/dota/ -f scripts/*.txt "${{ runner.temp }}\game\dota\pak01_dir.vpk"
+
       - run: |
           $sourceDir = "${{ runner.temp }}\game\dota_addons"
           $destDir = "${{ github.workspace }}\game\dota_addons"
@@ -52,11 +82,65 @@ jobs:
             New-Item -ItemType Directory -Path (Split-Path $dest) -Force | Out-Null
             Copy-Item $_.FullName -Destination $dest -Force
           }
+
       - run: Select-String -Path "${{ runner.temp }}\game\dota\steam.inf" -Pattern "^ClientVersion=(\d+)" | ForEach-Object { $_.Matches.Groups[1].Value } | Out-File -Encoding utf8 "version"
+
       - name: Commit and Push
         run: |
-          git config user.name "Nihongoka Bot"
-          git config user.email "71134725+nihongoka-bot@users.noreply.github.com"
+          git config user.name 'Nihongoka Bot'
+          git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com'
           git add ./game ./version
           if ( -not ( git diff-index --quiet HEAD ) ) { git commit -m "Client version: $( Get-Content version )" }
-          git push origin main
+          git push
+
+  push-dota2:
+    name: Commit and Push to nihongoka/dota2
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout dota2vpk repo
+        uses: actions/checkout@v5
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install python
+        run: uv python install
+      
+      - name: Install the project dependencies
+        run: uv sync --locked --all-extras
+
+      - id: app-token
+        name: Generate token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+          owner: nihongoka
+          repositories: dota2
+
+      - id: get-user-id
+        name: Get GitHub App User ID
+        run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Checkout dota2 repo
+        uses: actions/checkout@v5
+        with:
+          repository: nihongoka/dota2
+          path: dota2
+          ref: yaml
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Convert
+        run: uv run script/convert.py
+
+      - name: Commit and Push
+        working-directory: dota2
+        run: |
+          git config user.name 'Nihongoka Bot'
+          git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com'
+          git add ./game
+          git commit -m "Client Version: ${{ needs.build.outputs.version }}"
+          git push
