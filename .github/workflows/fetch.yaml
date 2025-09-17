@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 * * * *'
   workflow_dispatch:
+    # inputs:
+    #   skip_fetch:
+    #     type: boolean
+    #     description: Skip Fetch
+    #     default: false
 
 jobs:
   precheck:
@@ -142,5 +147,5 @@ jobs:
           git config user.name 'Nihongoka Bot'
           git config user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com'
           git add ./game
-          git commit -m "Client Version: ${{ needs.build.outputs.version }}"
+          git commit -m "Client Version: ${{ needs.build.outputs.version }}" || echo 'No Change Detected'
           git push
