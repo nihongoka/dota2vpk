@@ -23157,7 +23157,7 @@ To join as an experienced player, you must have at least {d:new_player_req_games
 	"dota_settings_pingwheel_defaults"				"Reset to defaults"
 
 	"dota_settings_selection_groups"							"Smart Selection Groups"
-	"dota_settings_selection_groups_tooltip"					"Units such as Broodmother's spiderlings, Engima's eidolons, Nature Prophet's treants, etc. are considered groups for selection."
+	"dota_settings_selection_groups_tooltip"					"Units such as Broodmother's spiderlings, Enigma's eidolons, Nature Prophet's treants, etc. are considered groups for selection."
 	"dota_settings_selection_groups_new_setting_title"			"Smart Selection Groups"
 	"dota_settings_selection_groups_new_setting_description"	"Set units summoned by heroes (e.g. Spiderlings, Eidolons, Treants) as groups for selection."
 
@@ -49657,7 +49657,7 @@ If you don't feel that you were able to dedicate the appropriate attention level
 		"DOTA_MonsterHunter_HowToPlay"				"How To Play"
 		"DOTA_MonsterHunter_Tabs_Rewards"			"Rewards"
 		"DOTA_MonsterHunter_HeroAtlas"				"Hero Atlas"
-		"DOTA_MonsterHunter_HeroAtlas_EntriesComplete"		"Unlocked"
+		"DOTA_MonsterHunter_HeroAtlas_EntriesComplete:p"		"Unlocked#|#Unlocked"
 		"DOTA_MonsterHunter_HeroAtlas_DetailedUnlocked"		"{d:codex_heroes_complete} / {d:codex_heroes_total} Unlocked"
 		"DOTA_MonsterHunter_ViewCodex"				"View Atlas"
 		"DOTA_MonsterHunter_Codex_Entry_New"		"New!"
@@ -50001,6 +50001,8 @@ If you don't feel that you were able to dedicate the appropriate attention level
 		"DOTA_ConfirmRecycleStickerText"					"Are you sure you want destroy the selected stickers and recycle them for progress towards your Bonus Sticker Capsule?"
 
 		"DOTA_MonsterHunter_Dashboard_Crafted"			"Crafted {d:amount_crafted}/{d:total_amount}"
+
+		"DOTA_MonsterHunter_Investigation_HuntHero"			"HUNT {s:hero_name}"
 
 		"DOTA_Style_Kirin_Bolts_Offhand_Weapon_0"	"Kirin Blue"
 		"DOTA_Style_Kirin_Bolts_Offhand_Weapon_1"	"Kirin Red"
